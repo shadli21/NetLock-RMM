@@ -3,23 +3,22 @@ NetLock RMM is an Remote Monitoring & Management (RMM) software built for Manage
 
 NetLock RMM can be deployed in various environments, including cloud setups or isolated/offline configurations. It supports multiple operating systems, including Windows and Linux, and can also run within Docker & Kubernetes, providing flexibility for different deployment preferences.
 
-
-
-![Web Console Preview](https://netlockrmm.com/assets/images/web-console-animation.webp)
+<video src="https://netlockrmm.com/assets/hero-demo-MVb7uUdN.webm" controls>
+  <p>Web Console Preview</p>
+</video>
 
 ## [Website](https://netlockrmm.com/)
-## [Documentation](https://docs.netlockrmm.com/en/home)
-## [Live Demo](https://demo-webconsole.netlockrmm.com)
-- Username: admin | Password: admin (some features might not work due to demo limitations)
-## [Supported OS & Features](https://docs.netlockrmm.com/en/supported-os)
-## [Roadmap](https://docs.netlockrmm.com/en/roadmap)
+## [Documentation](https://netlockrmm.com/docs)
+## [Security](https://netlockrmm.com/products/security)
+## [Live Demo](https://members.netlockrmm.com/demo)
+## [Supported OS & Features](https://netlockrmm.com/docs/features)
+## [Roadmap](https://netlockrmm.com/roadmap)
 ## [Discord](https://discord.gg/HqUpZgtX4U)
 
 ## **NetLock RMM – Feature Overview**
 
 ### 🚀 **Streamlined Server Setup**
 - The **Web Console** and **server software** are delivered as a standalone server built on **Kestrel**, eliminating the need for complex configurations with traditional servers like Apache.
-- **SSL Made Simple**: Love Let's Encrypt? Our integration with **LettuceEncrypt** makes it effortless to secure your connection with SSL certificates.
 
 ### 🛡️ **Flexible & Scalable Architecture**
 - **Modular Server Roles**: Run all components on a single machine or distribute them across multiple roles for scalability.
@@ -36,7 +35,7 @@ NetLock RMM can be deployed in various environments, including cloud setups or i
 
 ### 🛠️ **Powerful Remote Tools**
 - **Real-time remote shell**, file browser, task manager, and service manager.
-- **Remote screen control (windows)** and support that’s as intuitive as TeamViewer.
+- **Remote screen control (windows & linux)** and support that’s as intuitive as TeamViewer.
   - Full support for session switching and display switching
   - Unattended access & attended access
   - User chat interface
@@ -83,8 +82,10 @@ NetLock RMM can be deployed in various environments, including cloud setups or i
 Explore the full capabilities in our documentation to see everything NetLock RMM has to offer.
 
 # Set Up NetLock RMM in Minutes with Our Step-by-Step Guide
-[See in our documentation](https://docs.netlockrmm.com/en/server-installation-docker)
+[See in our documentation](https://netlockrmm.com/docs/beginners-guide)
 
 Happy monitoring! 🥳
+
+
 
 
