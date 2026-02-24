@@ -15,7 +15,7 @@ namespace NetLock_RMM_Web_Console
         public static string internal_recordings_dir = Path.Combine(GetCurrentDirectory(), "internal", "recordings");
         public static string internal_recordings_zipped_dir = Path.Combine(GetCurrentDirectory(), "internal", "recordings_zipped");
 
-        //OSSCH_START 731531c9-d242-497d-a59e-6fc2db262ffd //OSSCH_END
+        //OSSCH_START df7a97b8-79ba-44d9-9ec2-379e9f1a92ea //OSSCH_END
 
         public static string certificates_path = Path.Combine(GetCurrentDirectory(), "certificates");
 

@@ -822,7 +822,7 @@
         Autumn               // September 22 - December 9
     }
 
-    //OSSCH_START 4881a547-cccd-456a-bd97-c1863a567c29 //OSSCH_END
+    //OSSCH_START 891369a5-26fd-449e-a2f0-d97c7439783d //OSSCH_END
     
     private SeasonalEvent DetectSeasonalEvent()
     {
@@ -865,10 +865,10 @@
     {
         if (firstRender)
         {
-            await Permissions();
-
             _isDarkMode = await _mudThemeProvider.GetSystemDarkModeAsync();
 
+            await Permissions();
+            
             StateHasChanged();
 
             //await Check_Server_Health(); // Needs rewrite
@@ -1343,6 +1343,7 @@
     {
         _versionCheckTimer?.Dispose();
         ThemeUpdateService.OnThemeUpdated -= OnThemeUpdated;
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }
 

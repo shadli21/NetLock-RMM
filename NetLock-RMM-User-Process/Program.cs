@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -48,6 +49,12 @@ class UserClient
         public string remote_control_mouse_xyz { get; set; }
         public string remote_control_keyboard_input { get; set; }
         public string remote_control_keyboard_content { get; set; }
+        
+        // For process elevation with credentials (Windows only)
+        // Username can include domain: DOMAIN\username or .\username
+        public string remote_control_elevation_username { get; set; }
+        public string remote_control_elevation_password { get; set; }
+        public int remote_control_render_mode { get; set; }
     }
 
     public async Task Local_Server_Connect()
@@ -91,6 +98,8 @@ class UserClient
     /// <summary>
     /// Called when the session has been idle for too long (no screen captures).
     /// Restores animations and marks session as ended.
+    /// This also releases Desktop Duplication resources, allowing other
+    /// instances (e.g., in other sessions) to capture the screen.
     /// </summary>
     private void OnSessionIdleTimeout(object state)
     {
@@ -101,8 +110,24 @@ class UserClient
             if (OperatingSystem.IsWindows())
             {
                 Console.WriteLine("Remote session ended (idle timeout) - restoring Windows animations.");
-
                 AnimationManager.RestoreAnimations();
+                
+                // IMPORTANT: Release Desktop Duplication resources!
+                // This allows other instances (e.g., user session process after login)
+                // to capture the screen without conflicts.
+                Console.WriteLine("Releasing Desktop Duplication resources for other sessions...");
+                foreach (var capture in _captureInstances.Values)
+                {
+                    try
+                    {
+                        capture?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error disposing capture instance: {ex.Message}");
+                    }
+                }
+                _captureInstances.Clear();
             }
             
             // Linux: Stop PipeWire screen capture to release the screen share
@@ -757,6 +782,79 @@ class UserClient
                         KeyboardControlMacOS.TypeText(command.remote_control_keyboard_input);
                     }
                     break;
+                case "8": // Elevate process with credentials (Windows only)
+                    Console.WriteLine($"Received elevation request");
+                    
+                    if (OperatingSystem.IsWindows())
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                // Check if already running as admin
+                                if (ProcessElevation.IsRunningAsAdmin())
+                                {
+                                    await Local_Server_Send_Message($"elevation_result${command.response_id}$success%false$message%Process is already running with administrator privileges.");
+                                    Console.WriteLine("Elevation not required: already running as admin.");
+                                    return;
+                                }
+                                
+                                // Validate credentials are provided
+                                if (string.IsNullOrEmpty(command.remote_control_elevation_username) || string.IsNullOrEmpty(command.remote_control_elevation_password))
+                                {
+                                    await Local_Server_Send_Message($"elevation_result${command.response_id}$success%false$message%Username and password are required for elevation.");
+                                    Console.WriteLine("Elevation failed: Missing username or password.");
+                                    return;
+                                }
+                                
+                                Console.WriteLine($"Attempting elevation with provided credentials...");
+                                
+                                // Try elevation with LogonApi first (more reliable)
+                                var result = ProcessElevation.ElevateWithLogonApi(
+                                    command.remote_control_elevation_username,
+                                    command.remote_control_elevation_password);
+                                
+                                if (!result.Success)
+                                {
+                                    // Fallback to PowerShell method
+                                    Console.WriteLine("LogonApi elevation failed, trying PowerShell method...");
+                                    result = ProcessElevation.ElevateWithCredentials(
+                                        command.remote_control_elevation_username,
+                                        command.remote_control_elevation_password);
+                                }
+                                
+                                if (result.Success)
+                                {
+                                    Console.WriteLine($"Elevation successful! New process PID: {result.NewProcessId}");
+                                    
+                                    await Local_Server_Send_Message($"elevation_result${command.response_id}$success%true$message%{result.Message}");
+                                    
+                                    // Wait a moment for the message to be sent, then exit
+                                    await Task.Delay(1000);
+                                    
+                                    Console.WriteLine("Exiting current process after successful elevation...");
+                                    Environment.Exit(0);
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Elevation failed: {result.Message}");
+                                    
+                                    await Local_Server_Send_Message($"elevation_result${command.response_id}$success%false$message%{result.Message}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Elevation error: {ex.Message}");
+                                await Local_Server_Send_Message($"elevation_result${command.response_id}$success%false$message%{ex.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // Elevation with credentials is Windows-specific
+                        await Local_Server_Send_Message($"elevation_result${command.response_id}$success%false$message%Credential-based elevation is only supported on Windows.");
+                    }
+                    break;
                 default:
                     Console.WriteLine("Unknown command type.");
                     break;
@@ -960,7 +1058,7 @@ class UserClient
         Console.WriteLine("Disconnected from the server.");
     }
 
-    // Cache Desktop Duplication instances per screen to avoid re-initialization overhead
+    // Cache Desktop Duplication instances per screen to avoid re-initialization overhead (GPU mode)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, DesktopDuplicationApiCapture> _captureInstances = 
         new System.Collections.Concurrent.ConcurrentDictionary<int, DesktopDuplicationApiCapture>();
     
@@ -1027,19 +1125,28 @@ class UserClient
             {
                 int screenIndex = Convert.ToInt32(command.remote_control_screen_index);
                 
-                // Get or create Desktop Duplication capture instance for this screen
-                var capture = _captureInstances.GetOrAdd(screenIndex, idx =>
-                {
-                    // Find the correct adapter and output for this screen
-                    var (adapterIndex, outputIndex) = DesktopDuplicationApiCapture.FindAdapterForScreen(idx);
-                    var newCapture = new DesktopDuplicationApiCapture(adapterIndex, outputIndex);
-                    newCapture.Initialize();
-                    Console.WriteLine($"Created Desktop Duplication capture instance for screen {idx} (Adapter {adapterIndex}, Output {outputIndex})");
-                    return newCapture;
-                });
+                // Determine render mode from command: 0 = CPU, 1 = GPU (default to GPU if not specified)
+                bool useGpu = command.remote_control_render_mode != 0;
                 
-                // Capture using GPU-accelerated Desktop Duplication API
-                imageBytes = await capture.CaptureScreenToBytes(screenIndex);
+                if (useGpu)
+                {
+                    // GPU-accelerated Desktop Duplication API
+                    var capture = _captureInstances.GetOrAdd(screenIndex, idx =>
+                    {
+                        var (adapterIndex, outputIndex) = DesktopDuplicationApiCapture.FindAdapterForScreen(idx);
+                        var newCapture = new DesktopDuplicationApiCapture(adapterIndex, outputIndex);
+                        newCapture.Initialize();
+                        Console.WriteLine($"Created Desktop Duplication capture instance for screen {idx} (Adapter {adapterIndex}, Output {outputIndex})");
+                        return newCapture;
+                    });
+                    
+                    imageBytes = await capture.CaptureScreenToBytes(screenIndex);
+                }
+                else
+                {
+                    // CPU-based capture (OldScreenCapture)
+                    imageBytes = await OldScreenCapture.CaptureScreenToBytes(screenIndex);
+                }
             }
             else if (OperatingSystem.IsLinux())
             {
@@ -1189,16 +1296,50 @@ class Program
         {
             Console.WriteLine("Starting User Process...");
 
-            // Check if the process is already running for the current user
-            if (IsAlreadyRunningForCurrentUser())
-            {
-                Console.WriteLine("Process is already running for the current user. Exiting...");
-                return;
-            }
-
             // Windows-specific initialization
             if (OperatingSystem.IsWindows())
             {
+                // Check if this process was started via elevation (old process needs time to exit)
+                bool isElevatedStart = args.Contains("--elevated");
+            
+                if (isElevatedStart)
+                {
+                    Console.WriteLine("Process started via elevation. Waiting for old process to exit...");
+                
+                    // Wait for the old process to exit with retries
+                    int maxRetries = 25;
+                    int retryDelayMs = 500;
+                
+                    for (int i = 0; i < maxRetries; i++)
+                    {
+                        await Task.Delay(retryDelayMs);
+                    
+                        if (!IsAlreadyRunningForCurrentUser())
+                        {
+                            Console.WriteLine($"Old process exited after {(i + 1) * retryDelayMs}ms. Continuing...");
+                            break;
+                        }
+                    
+                        if (i == maxRetries - 1)
+                        {
+                            Console.WriteLine("Warning: Old process may still be running, but continuing anyway...");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Old process still running, retry {i + 1}/{maxRetries}...");
+                        }
+                    }
+                }
+                else
+                {
+                    // Normal start - check if the process is already running for the current user
+                    if (IsAlreadyRunningForCurrentUser())
+                    {
+                        Console.WriteLine("Process is already running for the current user. Exiting...");
+                        return;
+                    }
+                }
+                
                 Dpi.SetProcessDpiAwareness(Dpi.ProcessDpiAwareness.Process_Per_Monitor_DPI_Aware);
 
                 // Start session monitoring for seamless transition between login screen and user session

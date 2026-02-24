@@ -78,6 +78,9 @@ namespace NetLock_RMM_Server.SignalR
             public string remote_control_mouse_xyz { get; set; }
             public string remote_control_keyboard_input { get; set; }
             public string remote_control_keyboard_content { get; set; }
+            public string remote_control_elevation_username { get; set; }
+            public string remote_control_elevation_password { get; set; }
+            public int remote_control_render_mode { get; set; }
             public string command { get; set; } // used for service, task manager, screen capture
         }
          
@@ -617,6 +620,7 @@ namespace NetLock_RMM_Server.SignalR
                     case "3": return "ReceiveClientResponseRemoteControlScreenIndexes";
                     case "4": return "ReceiveClientResponseRemoteControlUsers";
                     case "6": return "ReceiveClientResponseRemoteControlClipboard";
+                    case "8": return "ReceiveClientResponseRemoteControlElevation";
                     default: return "ReceiveClientResponse";
                 }
             }

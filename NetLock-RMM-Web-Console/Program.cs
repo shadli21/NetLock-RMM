@@ -91,7 +91,7 @@ if (!String.IsNullOrEmpty(publicOverrideUrl))
 var language = builder.Configuration.GetValue<string>("Webinterface:Language", "en-US");
 
 // Check members portal parts
-//OSSCH_START 4310cce8-ce5d-49e1-b000-298f9ad878cc //OSSCH_END
+//OSSCH_START 59ca5277-1894-466f-84df-0b1bf0fb7bfb //OSSCH_END
 Console.WriteLine("---------Loader_End----------");
 
 // Output OS
@@ -290,7 +290,7 @@ else
             }
         }
         
-        //OSSCH_START b28a9304-475a-418f-bcf2-0e9f42416bce //OSSCH_END
+        //OSSCH_START 552982f1-bd42-4f7c-b30f-b12a8d2e91d1 //OSSCH_END
 
         // Load IP Whitelist from database
         try
@@ -338,7 +338,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // SSO Configuration
 Console.WriteLine(Environment.NewLine);
-//OSSCH_START 7c223bbf-c320-4198-8382-9f9421709999 //OSSCH_END
+//OSSCH_START 064858d4-3e56-405a-a19a-3b8c48f8dd89 //OSSCH_END
 
 // Blazor and core services
 builder.Services.AddBlazoredLocalStorage();
@@ -506,7 +506,7 @@ Console.WriteLine("Server started.");
 // SSO Challenge Endpoints
 if (Sso.IsEnabled && NetLock_RMM_Web_Console.Classes.Members_Portal.License.CodeSigned)
 {
-    //OSSCH_START 45f689e3-118a-471f-90ee-137810dfce34 //OSSCH_END
+    //OSSCH_START 4cba7443-aa26-4290-a258-0ba2698d9f22 //OSSCH_END
 
 // Test endpoint
 app.MapGet("/test", async context =>
@@ -518,7 +518,7 @@ app.MapGet("/test", async context =>
 // Members Portal Api Cloud Version Endpoints
 if (Members_Portal.IsCloudEnabled)
 {
-    //OSSCH_START cd0cae8a-5b97-4cc2-a09f-aec2b93b2a1d //OSSCH_END
+    //OSSCH_START 369e43eb-3a95-44f1-80a5-ccb804c000ae //OSSCH_END
 }
 
 // Start server

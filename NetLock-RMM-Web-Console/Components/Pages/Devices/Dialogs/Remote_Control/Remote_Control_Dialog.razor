@@ -535,6 +535,11 @@
                                 }
                             </MudSelect>
 
+                            <MudSelect Class="ml-2 mt-2" T="int" @bind-Value="_renderMode" Label="Capture method" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+                                <MudSelectItem T="int" Value="0">CPU (Software)</MudSelectItem>
+                                <MudSelectItem T="int" Value="1">GPU (Hardware accelerated)</MudSelectItem>
+                            </MudSelect>
+
                             @{
                                 if (screens.Count() > 1)
                                 {
@@ -565,6 +570,49 @@
                             <MudTooltip Text="Send Ctrl + Alt + Delete">
                                 <MudIconButton Class="ml-2 mt-2" Icon="@Icons.Material.Filled.LockOpen" Variant="Variant.Filled" Size="Size.Medium" Color="Color.Default" @onclick="@(() => Remote_Keyboard_Input("ctrlaltdel", false))"></MudIconButton>
                             </MudTooltip>
+
+                            @if (platform == "Windows" && !String.IsNullOrEmpty(user) && user != device_name)
+                            {
+                                <MudTooltip Text="Elevate user process">
+                                    <MudIconButton Class="ml-2 mt-2" Icon="@Icons.Material.Filled.AdminPanelSettings" Variant="Variant.Filled" Size="Size.Medium" Color="Color.Warning" OnClick="ElevationPopoverToggle"></MudIconButton>
+                                </MudTooltip>
+
+                                <MudPopover Open="@_elevationPopoverIsOpen" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+                                    <MudPaper Class="pa-4" Style="min-width: 300px;">
+                                        <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 600;">Elevate User Process</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                            Enter administrator credentials to elevate the user process.
+                                        </MudText>
+                                        <MudTextField T="string" 
+                                                      Label="Username" 
+                                                      @bind-Value="_elevationUsername" 
+                                                      Immediate="true"
+                                                      Class="mb-2"
+                                                      Adornment="Adornment.Start"
+                                                      AdornmentIcon="@Icons.Material.Filled.Person" />
+                                        <MudTextField T="string" 
+                                                      Label="Password" 
+                                                      @bind-Value="_elevationPassword" 
+                                                      Immediate="true"
+                                                      InputType="@(_elevationPasswordVisible ? InputType.Text : InputType.Password)"
+                                                      Adornment="Adornment.End"
+                                                      AdornmentIcon="@(_elevationPasswordVisible ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                                      OnAdornmentClick="@(() => _elevationPasswordVisible = !_elevationPasswordVisible)"
+                                                      AdornmentAriaLabel="Toggle password visibility"
+                                                      OnKeyDown="ElevationHandleKeyDown" />
+                                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default" OnClick="ElevationPopoverToggle" Style="flex: 1;">Cancel</MudButton>
+                                            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Warning" OnClick="@Remote_Elevate_User" Disabled="@_elevationLoading" Style="flex: 1;">
+                                                @if (_elevationLoading)
+                                                {
+                                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                                }
+                                                Elevate
+                                            </MudButton>
+                                        </div>
+                                    </MudPaper>
+                                </MudPopover>
+                            }
 
                             <MudIconButton Class="ml-2 mt-2" Icon="@Icons.Material.Filled.Abc" Variant="Variant.Filled" Size="Size.Medium" Color="Color.Default" OnClick="RemoteSendKeysPopoverToggle"></MudIconButton>
 
@@ -1125,6 +1173,16 @@
     private string _remoteSendKeysInput = String.Empty;
     private bool _remoteSendKeysInputVisible = false;
 
+    // Elevation
+    private bool _elevationPopoverIsOpen;
+    private string _elevationUsername = String.Empty;
+    private string _elevationPassword = String.Empty;
+    private bool _elevationPasswordVisible = false;
+    private bool _elevationLoading = false;
+
+    // Render Mode (Capture Method)
+    private int _renderMode = 1; // 0 = CPU, 1 = GPU
+
     // Clipboard
     private bool isClipboardEnabled = true;
 
@@ -1213,6 +1271,9 @@
         public string remote_control_mouse_xyz { get; set; }
         public string remote_control_keyboard_input { get; set; }
         public string remote_control_keyboard_content { get; set; }
+        public string remote_control_elevation_username { get; set; }
+        public string remote_control_elevation_password { get; set; }
+        public int remote_control_render_mode { get; set; }
     }
 
     public class Remote_Root_Object
@@ -1542,7 +1603,7 @@
                             {
                                 var result = await DialogService.ShowMessageBox(
                                     "New user detected",
-                                    $"A new user '{newUser}' has been detected. Do you want to switch to this user's session?",
+                                    $"A new user '{newUser}' has been detected. Do you want to switch to this user's session?\n\n Switching to the user session only makes sense if there are multiple user sessions on the remote device. The SYSTEM sessions default privileges are the highest in order to interact with UAC dialogs or elevated processes. If you switch to a user session, you might lose the ability to interact with UAC dialogs or elevated processes.",
                                     yesText: "Yes, switch",
                                     cancelText: "No"
                                 );
@@ -1561,18 +1622,6 @@
                                     // Request access for the new user session
                                     await Remote_Request_Access();
                                 }
-                            }
-                        }
-                        else if (users.Count() > 0 && String.IsNullOrEmpty(user))
-                        {
-                            // Initial user selection - set first user
-                            if (users.Count() == 1)
-                            {
-                                user = users[0]; // no other users logged in, switch to session 0
-                            }
-                            else if (users.Count() > 1)
-                            {
-                                user = users[1]; // other users are present. Switch to first user session
                             }
                         }
 
@@ -1856,6 +1905,64 @@
                     catch (Exception ex)
                     {
                         Logging.Handler.Error("ReceiveClientResponseRemoteControlAccessRequest", "General error", ex.ToString());
+                    }
+                });
+            });
+
+            // ReceiveClientResponseElevationResult
+            remote_server_client.On<string>("ReceiveClientResponseRemoteControlElevation", async (command) =>
+            {
+                Logging.Handler.Debug("ReceiveClientResponseRemoteControlElevation", "command", command);
+
+                // Use InvokeAsync to reflect changes on UI immediately
+                await InvokeAsync(() =>
+                {
+                    try
+                    {
+                        // Update last response time
+                        lastResponseTime = DateTime.Now;
+
+                        // Parse the JSON response
+                        bool success = false;
+                        string message = String.Empty;
+
+                        using (JsonDocument document = JsonDocument.Parse(command))
+                        {
+                            if (document.RootElement.TryGetProperty("success", out JsonElement successElement))
+                            {
+                                success = successElement.GetBoolean();
+                            }
+                            
+                            if (document.RootElement.TryGetProperty("message", out JsonElement messageElement))
+                            {
+                                message = messageElement.GetString() ?? String.Empty;
+                            }
+                        }
+
+                        // Show result to user
+                        if (success)
+                        {
+                            // Show messagebox with instruction to select elevated user
+                            DialogService.ShowMessageBox(
+                                "Elevation successful",
+                                "The user process has been elevated successfully.\n\nPlease select the user you specified for elevation in the user dropdown (top left) to switch to the elevated session.",
+                                yesText: "OK"
+                            );
+                        }
+                        else
+                        {
+                            string errorMessage = String.IsNullOrEmpty(message) 
+                                ? "Elevation failed. Please check the credentials and try again." 
+                                : $"Elevation failed: {message}";
+                            Snackbar.Add(errorMessage, Severity.Error);
+                        }
+
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logging.Handler.Error("ReceiveClientResponseRemoteControlElevation", "General error", ex.ToString());
+                        Snackbar.Add("An error occurred while processing elevation result.", Severity.Error);
                     }
                 });
             });
@@ -2393,6 +2500,7 @@
                 remote_control_username = user, // refresh screen
                 remote_control_screen_index = screen_index, // refresh screen
                 remote_control_mouse_xyz = "0, 0", // refresh screen
+                remote_control_render_mode = _renderMode, // 0 = CPU, 1 = GPU
             };
 
             var rootObject = new Remote_Root_Object
@@ -2519,6 +2627,110 @@
     {
         await Remote_Keyboard_Input(_remoteSendKeysInput, true);
         RemoteSendKeysPopoverToggle();
+    }
+
+    // Elevation
+    private void ElevationPopoverToggle()
+    {
+        _elevationPopoverIsOpen = !_elevationPopoverIsOpen;
+        
+        if (!_elevationPopoverIsOpen)
+        {
+            // Clear credentials when closing
+            _elevationUsername = string.Empty;
+            _elevationPassword = string.Empty;
+            _elevationPasswordVisible = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ElevationHandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Remote_Elevate_User();
+        }
+    }
+
+    private async Task Remote_Elevate_User()
+    {
+        // Validate input
+        if (String.IsNullOrEmpty(_elevationUsername) || String.IsNullOrEmpty(_elevationPassword))
+        {
+            Snackbar.Add("Please enter both username and password.", Severity.Warning);
+            return;
+        }
+
+        _elevationLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Create the object
+            var adminIdentity = new Remote_Admin_Identity
+            {
+                token = token
+            };
+
+            var targetDevice = new Remote_Target_Device
+            {
+                access_key = access_key
+            };
+
+            var command = new Remote_Command
+            {
+                type = 4, // remote control
+                wait_response = true,
+                command = "8", // 8 = elevate user process
+                remote_control_username = user,
+                remote_control_screen_index = screen_index,
+                remote_control_elevation_username = _elevationUsername,
+                remote_control_elevation_password = _elevationPassword
+            };
+
+            var rootObject = new Remote_Root_Object
+            {
+                admin_identity = adminIdentity,
+                target_device = targetDevice,
+                command = command
+            };
+
+            // Serialization of the object
+            string json = JsonSerializer.Serialize(rootObject, new JsonSerializerOptions { WriteIndented = true });
+
+            if (remote_server_client_setup)
+            {
+                Logging.Handler.Debug("/dashboard -> Remote_Elevate_User", "Message", json);
+
+                try
+                {
+                    await remote_server_client.SendAsync("MessageReceivedFromWebconsole", json);
+                }
+                catch (Exception ex)
+                {
+                    Logging.Handler.Error("/dashboard -> Remote_Elevate_User", "General error", ex.ToString());
+                }
+            }
+            else
+            {
+                Logging.Handler.Error("/dashboard -> Remote_Elevate_User", "Remote server not setup.", "");
+                await Reconnect();
+            }
+
+            // Close popover and clear credentials
+            ElevationPopoverToggle();
+        }
+        catch (Exception ex)
+        {
+            Logging.Handler.Error("/dashboard -> Remote_Elevate_User", "General error", ex.ToString());
+            Snackbar.Add("An error occurred while sending elevation request.", Severity.Error);
+        }
+        finally
+        {
+            _elevationLoading = false;
+            StateHasChanged();
+        }
     }
 
     // Keyboard input

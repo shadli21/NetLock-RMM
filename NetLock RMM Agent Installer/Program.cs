@@ -84,15 +84,33 @@ namespace NetLock_RMM_Agent_Installer
 
                 // Handle hidden parameter (--hidden or -h). Filter it out so the rest of the argument
                 // processing remains unchanged. If present and running on Windows, hide the console window.
+                // Handle --temp parameter for custom temp directory.
                 bool hideWindow = false;
                 bool noLog = false;
+                string? customTempPath = null;
                 if (args != null && args.Length > 0)
                 {
-                    var filtered = args.Where(a => 
+                    // Extract --temp value first
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        if ((string.Equals(args[i], "--temp", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(args[i], "-t", StringComparison.OrdinalIgnoreCase)) &&
+                            i + 1 < args.Length)
+                        {
+                            customTempPath = args[i + 1];
+                        }
+                    }
+                    
+                    var filtered = args.Where((a, index) => 
                         !string.Equals(a, "--hidden", StringComparison.OrdinalIgnoreCase) && 
                         !string.Equals(a, "-h", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(a, "--no-log", StringComparison.OrdinalIgnoreCase) &&
-                        !string.Equals(a, "--nolog", StringComparison.OrdinalIgnoreCase)).ToArray();
+                        !string.Equals(a, "--nolog", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(a, "--temp", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(a, "-t", StringComparison.OrdinalIgnoreCase) &&
+                        // Also filter out the value following --temp or -t
+                        !(index > 0 && (string.Equals(args[index - 1], "--temp", StringComparison.OrdinalIgnoreCase) ||
+                                        string.Equals(args[index - 1], "-t", StringComparison.OrdinalIgnoreCase)))).ToArray();
                     
                     hideWindow = args.Any(a => string.Equals(a, "--hidden", StringComparison.OrdinalIgnoreCase) || 
                                                string.Equals(a, "-h", StringComparison.OrdinalIgnoreCase));
@@ -101,6 +119,14 @@ namespace NetLock_RMM_Agent_Installer
                                           string.Equals(a, "--nolog", StringComparison.OrdinalIgnoreCase));
                     
                     args = filtered; // use filtered args for the rest of the program
+                }
+                
+                // Set custom temp path if provided
+                if (!string.IsNullOrEmpty(customTempPath))
+                {
+                    Console.WriteLine($"[{DateTime.Now}] - [Main] -> Using custom temp path: {customTempPath}");
+                    Logging.Handler.Debug("Main", "Custom Temp Path", customTempPath);
+                    Application_Paths.SetCustomTempPath(customTempPath);
                 }
 
                 if (hideWindow && OperatingSystem.IsWindows())

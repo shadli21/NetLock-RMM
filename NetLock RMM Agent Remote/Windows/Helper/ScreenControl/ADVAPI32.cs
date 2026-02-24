@@ -272,6 +272,7 @@ public static class ADVAPI32
 
     #region Constants
     public const int TOKEN_DUPLICATE = 0x0002;
+    public const int TOKEN_QUERY = 0x0008;
     public const uint MAXIMUM_ALLOWED = 0x2000000;
     public const int CREATE_NEW_CONSOLE = 0x00000010;
     public const int CREATE_NO_WINDOW = 0x08000000;

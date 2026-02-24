@@ -161,6 +161,9 @@ namespace NetLock_RMM_Agent_Remote
             public string remote_control_mouse_xyz { get; set; }
             public string remote_control_keyboard_input { get; set; }
             public string remote_control_keyboard_content { get; set; }
+            public string remote_control_elevation_username { get; set; }
+            public string remote_control_elevation_password { get; set; }
+            public int remote_control_render_mode { get; set; }
             public string command { get; set; } // used for service, task manager, screen capture. A command can either be a quick command like "list" or a json string with parameters, a number or json string. Can also be used to transfer command details for other command types
         }
 
@@ -277,9 +280,9 @@ namespace NetLock_RMM_Agent_Remote
                         break;
 
                     string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-if (Agent.debug_mode)
-    Logging.Debug("Service.Local_Server_Handle_Server_Messages", "Received message", message);
-
+                    
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.Local_Server_Handle_Server_Messages", "Received message", message);
 
                     // Split the message per $
                     string[] messageParts = message.Split('$');
@@ -1182,7 +1185,7 @@ if (Agent.debug_mode)
                         if (command_object.type == 0 && _agentSettingsRemoteShellEnabled) // Remote Shell
                         {
                             if (OperatingSystem.IsWindows())
-                                result = Windows.Helper.PowerShell.Execute_Command("Remote Shell",
+                                result = Windows.Helper.PowerShell.Execute_Script("Remote Shell",
                                     command_object.powershell_code, Convert.ToInt32(command_object.command));
                             else if (OperatingSystem.IsLinux())
                                 result = Linux.Helper.Bash.Execute_Script("Remote Shell", true,
@@ -1403,6 +1406,9 @@ if (Agent.debug_mode)
                                         remote_control_mouse_xyz = command_object.remote_control_mouse_xyz,
                                         remote_control_keyboard_input = command_object.remote_control_keyboard_input,
                                         remote_control_keyboard_content = command_object.remote_control_keyboard_content,
+                                        remote_control_elevation_username = command_object.remote_control_elevation_username,
+                                        remote_control_elevation_password = command_object.remote_control_elevation_password,
+                                        remote_control_render_mode = command_object.remote_control_render_mode,
                                     };
 
                                     // Convert the object into a JSON string (use minimal formatting for performance)
@@ -1908,7 +1914,7 @@ if (Agent.debug_mode)
             {
                 // First check if cached processes are still running
                 bool systemProcessRunning = IsCachedProcessRunning(_cachedSystemProcessPid);
-                
+
                 // Get active sessions
                 var activeSessions = Windows.Helper.ScreenControl.WindowsSession.GetActiveSessions();
                 
@@ -1918,7 +1924,7 @@ if (Agent.debug_mode)
                 {
                     if (sessionId == 0) continue;
                     if (!Windows.Helper.ScreenControl.WindowsSession.IsUserLoggedIntoSession(sessionId)) continue;
-                    
+
                     if (_cachedUserProcessPids.TryGetValue(sessionId, out int cachedPid))
                     {
                         if (!IsCachedProcessRunning(cachedPid))
@@ -1932,7 +1938,7 @@ if (Agent.debug_mode)
                         allUserProcessesRunning = false;
                     }
                 }
-                
+
                 // FAST PATH: If all cached processes are still running, we're done!
                 if (systemProcessRunning && allUserProcessesRunning)
                 {
@@ -1943,7 +1949,7 @@ if (Agent.debug_mode)
 
                 // SLOW PATH: Need to enumerate processes - but only ONCE for all checks
                 if (Agent.debug_mode)
-                    Logging.Debug("Service.CheckUserProcess.Windows", "Need process enumeration", 
+                    Logging.Debug("Service.CheckUserProcess.Windows", "Need process enumeration",
                         $"SystemRunning: {systemProcessRunning}, AllUserRunning: {allUserProcessesRunning}");
 
                 // Get ALL processes once and filter in memory (much faster than multiple GetProcessesByName calls)
@@ -1952,13 +1958,13 @@ if (Agent.debug_mode)
                 try
                 {
                     // Find our target processes by name
-                    var systemProcesses = allProcesses.Where(p => 
+                    var systemProcesses = allProcesses.Where(p =>
                     {
                         try { return p.ProcessName == "NetLock_RMM_User_Process"; }
                         catch { return false; }
                     }).ToList();
-                    
-                    var uacProcesses = allProcesses.Where(p => 
+
+                    var uacProcesses = allProcesses.Where(p =>
                     {
                         try { return p.ProcessName == "NetLock_RMM_User_Process_UAC"; }
                         catch { return false; }
@@ -1975,9 +1981,9 @@ if (Agent.debug_mode)
                                 {
                                     systemProcessRunning = true;
                                     _cachedSystemProcessPid = process.Id;
-                                    
+
                                     if (Agent.debug_mode)
-                                        Logging.Debug("Service.CheckUserProcess.Windows", "Found system process", 
+                                        Logging.Debug("Service.CheckUserProcess.Windows", "Found system process",
                                             $"PID: {process.Id}");
                                     break;
                                 }
@@ -3009,6 +3015,50 @@ if (Agent.debug_mode)
                     }
 
                     await remote_server_client.SendAsync("ReceiveClientResponse", messageParts[1], messageParts[2], false);
+                }
+                else if (messageParts[0] == "elevation_result")
+                {
+                    // Format: elevation_result${response_id}$success%{true/false}$message%{message}$new_pid%{pid}
+                    string responseId = messageParts.Length > 1 ? messageParts[1] : "";
+                    
+                    // Parse key-value pairs from remaining parts
+                    bool success = false;
+                    string resultMessage = "";
+                    string newPid = "";
+                    
+                    for (int i = 2; i < messageParts.Length; i++)
+                    {
+                        string part = messageParts[i];
+                        if (part.StartsWith("success%"))
+                        {
+                            success = part.Substring(8).ToLower() == "true";
+                        }
+                        else if (part.StartsWith("message%"))
+                        {
+                            resultMessage = part.Substring(8);
+                        }
+                    }
+                    
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.ProcessMessage", "Elevation result received",
+                            $"response_id: {responseId}, success: {success}, message: {resultMessage}, new_pid: {newPid}");
+                    
+                    // Create JSON result to send back to server
+                    var resultObject = new
+                    {
+                        success = success,
+                        message = resultMessage,
+                        new_pid = newPid
+                    };
+                    
+                    string jsonResult = JsonSerializer.Serialize(resultObject);
+                    
+                    // Send response to remote server
+                    await remote_server_client.SendAsync("ReceiveClientResponse", responseId, jsonResult, false);
+                    
+                    if (Agent.debug_mode)
+                        Logging.Debug("Service.ProcessMessage", "Elevation result sent to server",
+                            $"response_id: {responseId}");
                 }
                 else
                 {

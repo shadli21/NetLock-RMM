@@ -369,7 +369,7 @@ Console.WriteLine(Environment.NewLine);
 // Check Package Status and Request Packages from Members Portal API if roles apply, api enabled and API key is set
 if (Roles.Update || Roles.Trust)
 {
-    //OSSCH_START 57dc1283-a82c-4c01-8fec-bc5e8119ebde //OSSCH_END
+    //OSSCH_START be1cff0e-f13c-4dfe-9063-f0cf9db366f3 //OSSCH_END
 }
 
 // Add services to the container.
@@ -548,19 +548,19 @@ app.MapGet("/test", async context =>
 // Members Portal Api Cloud Version Endpoints
 if (Members_Portal.IsCloudEnabled)
 {
-    //OSSCH_START 71fa089e-d927-43e2-b439-120c26804dd7 //OSSCH_END
+    //OSSCH_START 9eebca51-57a6-4138-8ca5-0191c989eb3f //OSSCH_END
 }
 
 if (Members_Portal.IsCloudEnabled)
 {
     // Credentials update endpoint
-    //OSSCH_START df7fc4ac-a523-4c53-a0a5-ca2be80be5fa //OSSCH_END
+    //OSSCH_START f9a0d8a1-99e4-47be-98ac-de2d97aa471b //OSSCH_END
 }
 
 // NetLock files download private - GUID, used for update server & trust server
 if (role_update || role_trust)
 {
-    //OSSCH_START ef778c6d-f66a-46ca-8f82-f143383eb839 //OSSCH_END
+    //OSSCH_START 8d6a3315-baaf-46bb-9ef5-701c75d65ecf //OSSCH_END
 }
 
 // Map comm agent endpoints if role_comm is enabled

@@ -10,6 +10,17 @@ namespace NetLock_RMM_Agent_Installer
 {
     internal class Application_Paths
     {
+        // Custom temp path that can be set via --temp parameter
+        private static string _customTempPath = null;
+        
+        public static void SetCustomTempPath(string path)
+        {
+            _customTempPath = path;
+            // Re-initialize temp-dependent paths
+            c_temp_netlock_dir = Path.Combine(GetTempPath(), "netlock rmm");
+            c_temp_logs_dir = Path.Combine(GetTempPath(), "netlock rmm", "installer", "logs");
+        }
+        
         public static string c_temp_netlock_dir = Path.Combine(GetTempPath(), "netlock rmm");
         public static string c_temp_logs_dir = Path.Combine(GetTempPath(), "netlock rmm", "installer", "logs");
 
@@ -133,6 +144,12 @@ namespace NetLock_RMM_Agent_Installer
 
         public static string GetTempPath()
         {
+            // Return custom temp path if set
+            if (!string.IsNullOrEmpty(_customTempPath))
+            {
+                return _customTempPath;
+            }
+            
             string basePath;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

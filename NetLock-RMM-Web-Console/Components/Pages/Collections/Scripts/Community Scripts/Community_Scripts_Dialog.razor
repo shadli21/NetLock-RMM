@@ -338,11 +338,11 @@
         {
             string url = Application_Settings.IsLiveEnvironment ? Application_Settings.Members_Portal_Api_Url_Live : Application_Settings.Members_Portal_Api_Url_Test;
             url = url + "/api/community/scripts/get";
-
+            
             string json = await Classes.Helper.Http.Get_Request_With_Api_Key(url, true);
-
+            
             json = Encryption.String_Encryption.Decrypt(json, Application_Settings.Obfuscation_Encryption_Password);
-
+            
             scripts_mysql_data = JsonSerializer.Deserialize<List<Scripts_Entity>>(json);
         }
         catch (Exception ex)

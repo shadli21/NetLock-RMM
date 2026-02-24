@@ -951,7 +951,7 @@ namespace NetLock_RMM_Web_Console.Classes.MySQL
         }
 
         // Get SSO Configuration from database
-        //OSSCH_START e879e937-2fce-482d-9585-7b6219bcb7f9 //OSSCH_END
+        //OSSCH_START c98d76a8-da4e-4076-817e-a6f4a177131d //OSSCH_END
         
         // Set public override url (settings table) 
         public static async Task<bool> SetPublicOverrideUrl(string url)
