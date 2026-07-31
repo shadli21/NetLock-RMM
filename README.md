@@ -10,7 +10,7 @@
 [![Documentation](https://img.shields.io/badge/Docs-netlockrmm.com%2Fdocs-blue?style=for-the-badge)](https://netlockrmm.com/docs)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20it%20now-purple?style=for-the-badge)](https://members.netlockrmm.com/demo)
 [![Pricing](https://img.shields.io/badge/Pricing-Community%20%26%20Pro-orange?style=for-the-badge)](https://netlockrmm.com/pricing/)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/HqUpZgtX4U)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/32VJatKvAn)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/0x101-Cyber-Security/NetLock-RMM)
 [![Roadmap](https://img.shields.io/badge/Roadmap-View%20Progress-green?style=for-the-badge)](https://netlockrmm.com/roadmap)
 [![Security](https://img.shields.io/badge/Security-Policy-critical?style=for-the-badge)](https://netlockrmm.com/products/security)
